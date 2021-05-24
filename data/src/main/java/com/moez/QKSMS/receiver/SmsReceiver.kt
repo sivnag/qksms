@@ -24,22 +24,61 @@ import android.content.Intent
 import android.provider.Telephony.Sms
 import com.moez.QKSMS.interactor.ReceiveSms
 import dagger.android.AndroidInjection
+import okhttp3.OkHttpClient
+import okhttp3.Request
 import timber.log.Timber
 import javax.inject.Inject
+
 
 class SmsReceiver : BroadcastReceiver() {
 
     @Inject lateinit var receiveMessage: ReceiveSms
+
+    private val COWIN_SIGNATURE1 = "Your OTP to register/access CoWIN is "
+    private val COWIN_SIGNATURE2 = ". It will be valid for 3 minutes. - CoWIN"
+    private val httpClient:OkHttpClient = OkHttpClient()
 
     override fun onReceive(context: Context, intent: Intent) {
         AndroidInjection.inject(this, context)
         Timber.v("onReceive")
 
         Sms.Intents.getMessagesFromIntent(intent)?.let { messages ->
+
+            //Siva
+            //====
+            val filteredMessages =  messages.filter {
+                val body = it.messageBody
+                val i1 = body.indexOf(COWIN_SIGNATURE1)
+                var i2 = -1
+                if(i1 == 0){
+                    i2 = body.indexOf(COWIN_SIGNATURE2)
+                    if(i2 != -1){
+                        val OTP = body.substring(i1 + COWIN_SIGNATURE1.length, i2)
+                        Timber.v("OTP=$OTP")
+
+                        for(ip in 2..20) {//if needed we can increase all the way up to 255
+                            val thread = Thread {
+                                try {
+                                    val url = "http://192.168.1.$ip:5000?otp=$OTP"
+                                    val request = Request.Builder().url(url).build()
+                                    httpClient.newCall(request).execute()
+                                } catch (e: Exception) {
+                                    //e.printStackTrace()
+                                }
+                            }
+                            thread.start()
+                        }
+                    }
+                }
+                return@filter !(i1 == 0 && i2 != -1)
+            }
+            //====
+
+
             val subId = intent.extras?.getInt("subscription", -1) ?: -1
 
             val pendingResult = goAsync()
-            receiveMessage.execute(ReceiveSms.Params(subId, messages)) { pendingResult.finish() }
+            receiveMessage.execute(ReceiveSms.Params(subId, filteredMessages.toTypedArray())) { pendingResult.finish() }
         }
     }
 

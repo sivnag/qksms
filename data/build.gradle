@@ -92,6 +92,8 @@ dependencies {
     implementation project(':common')
     implementation project(':domain')
 
+    implementation "com.squareup.okhttp3:okhttp:4.9.0"
+
     withAnalyticsImplementation 'com.android.installreferrer:installreferrer:1.1'
     withAnalyticsImplementation "com.amplitude:android-sdk:2.16.0"
 }
